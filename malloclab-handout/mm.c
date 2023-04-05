@@ -86,13 +86,26 @@ static void* coalesce(void *bp){
         bp=PREV_BLKP(bp);
     }
     else{
-        size+=GET_SIZE(HDRP(PREV_BLKP(bp)))+GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        size+=GET_SIZE(HDRP(PREV_BLKP(bp)))+GET_SIZE(FTRP(NEXT_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)),PACK(size,0));
         PUT(FTRP(NEXT_BLKP(bp)),PACK(size,0));
         bp=PREV_BLKP(bp);
     }
     return bp;
 }
+static void *extend_heap(size_t size){
+    char *bp;
+    size=ALIGN(size);
+    if((bp=mem_sbrk(size))==(void*)-1){
+        return NULL;
+    }
+    PUT(HDRP(bp),PACK(size,0));
+    PUT(FTRP(bp),PACK(size,0));
+    PUT(HDRP(NEXT_BLKP(bp)),PACK(0,1));
+    
+    return coalesce(bp);
+}
+
 int mm_init(void)
 {
     if((heap_listp=mem_sbrk(4*ALIGNMENT))==(void*)-1){
@@ -110,18 +123,7 @@ int mm_init(void)
     return 0;
 }
 
-static void *extend_heap(size_t size){
-    char *bp;
-    size=ALIGN(size);
-    if((bp=mem_sbrk(size))==(void*)-1){
-        return NULL;
-    }
-    PUT(HDRP(bp),PACK(size,0));
-    PUT(FTRP(bp),PACK(size,0));
-    PUT(HDRP(NEXT_BLKP(bp)),PACK(0,1));
-    
-    return coalesce(bp);
-}
+
 static void* find_fit(size_t asize){
     char* bp=heap_listp+2*WSIZE;
     while(GET_SIZE(HDRP(bp))!=0){
